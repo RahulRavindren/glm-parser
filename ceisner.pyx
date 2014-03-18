@@ -1,50 +1,57 @@
 # distutils: language = c++
 from libcpp.utility cimport pair
+from libcpp.queue cimport queue
 from libcpp.list cimport list
 from libcpp cimport bool
 from libc.stdlib cimport malloc, calloc, free
 
 cdef struct EisnerNode:
     int score
-    list[pair[int, int]] edge_list
+    int mid_index
     
+#TODO try size_t
+cdef struct EdgeRecoverNode:
+    int s
+    int t
+    int orientation
+    int shape
+
 ctypedef EisnerNode* P_EisnerNode
-    
+ctypedef EisnerNode** PP_EisnerNode   
+
 cdef class EisnerParser:
-    cdef P_EisnerNode ***e
-    
+    cdef PP_EisnerNode ***e
+    cdef list[pair[int, int]] edge_list
+    cdef int n
+    cdef int tt
     def __cinit__(self):
         pass
     
-    def init_eisner_matrix(self, n):
-        self.e = <P_EisnerNode***>malloc(n*sizeof(P_EisnerNode**))
-        for i in range(n):
-            self.e[i] = <P_EisnerNode**>malloc(n*sizeof(P_EisnerNode*))
-            for j in range(n):
-                self.e[i][j] = <P_EisnerNode*>malloc(2*sizeof(P_EisnerNode))
-                for k in [0,1]:
-                    self.e[i][j][k] = <P_EisnerNode>malloc(2*sizeof(EisnerNode))
-
+    def init_eisner_matrix(self):
+        self.e = <PP_EisnerNode***>malloc(self.n*sizeof(PP_EisnerNode**))
+        cdef int i, j, k, l
+        for i in range(self.n):
+            self.e[i] = <P_EisnerNode***>calloc(self.n,sizeof(P_EisnerNode**))
+            for j in range(self.n):
+                self.e[i][j] = <P_EisnerNode**>calloc(2,sizeof(P_EisnerNode*))
+                for k in range(2):
+                    self.e[i][j][k] = <P_EisnerNode*>calloc(2,sizeof(P_EisnerNode))
+                    for l in range(2):
+                        self.e[i][j][k][l] = <P_EisnerNode>calloc(1,sizeof(EisnerNode))
         return
-    """
-    cdef add_list(self, EisnerNode& a, int scor):
-        print "add_eisner_node"
-        cdef EisnerNode c
-        c.score = a.score + b.score
 
-        a.edge_list.sort()
-        b.edge_list.sort()
-        c.edge_list.merge(a.edge_list)
-        c.edge_list.merge(b.edge_list)
+    def delete_eisner_matrix(self):
+        cdef int i, j, k
+        for i in range(self.n):
+            for j in range(self.n):
+                for k in range(2):
+                    for l in range(2):
+                        free(self.e[i][j][k][l])
+                    free(self.e[i][j][k])
+                free(self.e[i][j])
+            free(self.e[i])
 
-        print c.score
-        return c
-     
-    cdef void add_edge(self, EisnerNode& a, head, modifier, score):
-        a.score += score
-        a.edge_list.push_back(pair[int,int](head,modifier))
-        return
-    """     
+    
     def combine_triangle(self, head, modifier, arc_weight):
         # s < t strictly
         if head == modifier:
@@ -57,130 +64,185 @@ cdef class EisnerParser:
         else:
             s = modifier
             t = head
-
+            
         cdef int edge_score = arc_weight(head, modifier)
-        
-        print "11111self.e[s][s][1][0]   s:", s, "t:",t
         cdef int max_index = s
-        print "22222self.e[s][s][1][0]:",self.e[s][s][1][0].score,self.e[s+1][t][0][0].score
         cdef int max_score = \
             self.e[s][s][1][0].score + self.e[s+1][t][0][0].score + edge_score
-        print "33333self.e[s][s][1][0]:"
-        cdef int cur_score = max_score
+
+        cdef int cur_score
         for q from s < q < t by 1:
-            print "44444inside for"
-            print "s:",s,"q:",q,"t:",t
             cur_score = self.e[s][q][1][0].score + self.e[q+1][t][0][0].score + edge_score
             if max_score < cur_score:
                 max_score = cur_score
                 max_index = q
-        print "55555", max_score, max_index, self.e[s][max_index][1][0].edge_list
-        
-        cdef list[pair[int, int]] list_a = self.e[s][max_index][1][0].edge_list
-        print "66666", list_a
-        cdef list[pair[int, int]] list_b = self.e[max_index+1][t][0][0].edge_list
-        print "77777", list_b
-        list_b.merge(list_a)
-        list_b.push_back(pair[int, int](head, modifier))
-        
-        return max_score, list_b 
+        return max_score, max_index 
     
-    cdef EisnerNode combine_left(self, int s, int t):
-        print "combine_left"
+    cdef combine_left(self, int s, int t):        
         # s < t strictly
-        
         if s >= t:
             print "invalid head and modifier for combine left!!!"
         
-        cdef EisnerNode max_node # = \
-        """    self.add_eisner_node(self.e[s][s][0][0], self.e[s][t][0][1])
-        
-        cdef EisnerNode cur_node
+        cdef int max_index = s
+        cdef int max_score = self.e[s][s][0][0].score + self.e[s][t][0][1].score
+
+        cdef int cur_score
         cdef int q
         for q from s < q < t by 1:
-            cur_node = self.add_eisner_node(self.e[s][q][0][0], self.e[q][t][0][1])
-            
-            if max_node.score < cur_node.score:
-                max_node = cur_node
-        print max_node.score
-        """
-        return max_node
+            cur_score = self.e[s][q][0][0].score + self.e[q][t][0][1].score
+            if max_score < cur_score:
+                max_score = cur_score
+                max_index = q
 
-    cdef EisnerNode combine_right(self, int s, int t):
-        print "combine_right"
+        return max_score, max_index 
+       
+    cdef combine_right(self, int s, int t):
         # s < t strictly
         if s >= t:
             print "invalid head and modifier for combine right!!!"
         
-        cdef EisnerNode max_node# = \
-        """    self.add_eisner_node(self.e[s][s+1][1][1], self.e[s+1][t][1][0])
-        
-        cdef EisnerNode cur_node
+        cdef int max_index = s+1
+        cdef int max_score = self.e[s][s+1][1][1].score + self.e[s+1][t][1][0].score
+
+        cdef int cur_score
         cdef int q
         for q from s+1 < q <= t by 1:
-            cur_node = self.add_eisner_node(self.e[s][q][1][1], self.e[q][t][1][0])
-            
-            if max_node.score < cur_node.score:
-                max_node = cur_node
-        print max_node.score
-        """
-        return max_node    
-    
-	
-    def parse(self, n, arc_weight):	
-		# this is the test code for memory allocate n*n*2*2 metrix
-		# here I am trying to create a 3*2*2 array and it crashes in my computer
-		# if we create a 2*2*2 array, the code works fine
-        print n
-        cdef P_EisnerNode ***a = <P_EisnerNode***>malloc(n*sizeof(P_EisnerNode**))
-        for i in range(n):
-            a[i] = <P_EisnerNode**>malloc(2*sizeof(P_EisnerNode*))
-            for j in range(2):
-                a[i][j] = <P_EisnerNode*>malloc(2*sizeof(P_EisnerNode))
-                for k in range(2):
-                    a[i][j][k] = <EisnerNode*>malloc(sizeof(EisnerNode))
-                    a[i][j][k].score = 0
-                    a[i][j][k].edge_list.clear()
-        
-        print "score", a[0][1][0].score
-        print "list", a[0][0][1].edge_list
-		
-        """
-		self.init_eisner_matrix(n)
-		
-        cdef list[pair[int, int]] a# = [(1,2), (2,3), (3,4)]
-        a.push_back((1,2))
-        a.push_back((2,2))
-        
-        cdef list[pair[int, int]] b #= [(2,2), (3,3), (4,4)]
-        b.push_back((3,4))
-        b.push_back((0,0))
-        
-        cdef list[pair[int, int]] c = b
-        a.merge(c)
-        print a
-        print b
-        print c
-        
-        cdef int m, s, t, q, q_max
-        cdef EisnerNode node  
-        #TODO: try for m in range(1,n)
+            cur_score = self.e[s][q][1][1].score + self.e[q][t][1][0].score
+            if max_score < cur_score:
+                max_score = cur_score
+                max_index = q
+                
+        return max_score, max_index     
 
+    cdef EdgeRecoverNode new_edge_recover_node(self, int s, int t, int orien, int shape):
+        cdef EdgeRecoverNode new_node
+        new_node.s = s
+        new_node.t = t
+        new_node.orientation = orien
+        new_node.shape = shape
+
+        return new_node
+    
+    cdef split_right_triangle(self, EdgeRecoverNode node):
+        """
+        right triangle: e[s][t][1][0]
+        """
+        cdef EdgeRecoverNode node_left, node_right
+        
+        cdef int q = self.e[node.s][node.t][1][0].mid_index
+        
+        node_left = self.new_edge_recover_node(node.s, q, 1, 1)
+        node_right = self.new_edge_recover_node(q, node.t, 1, 0)
+
+        return node_left, node_right
+        
+    cdef split_left_triangle(self, EdgeRecoverNode node):
+        """
+        left triangle: e[s][t][0][0]
+        """
+        cdef EdgeRecoverNode node_left, node_right
+        
+        cdef int q = self.e[node.s][node.t][0][0].mid_index
+        
+        node_left = self.new_edge_recover_node(node.s, q, 0, 0)
+        node_right = self.new_edge_recover_node(q, node.t, 0, 1)
+
+        return node_left, node_right
+
+    cdef split_right_trapezoid(self, EdgeRecoverNode node):
+        """
+        right trapezoid: e[s][t][1][1]
+        """
+        cdef pair[int, int] edge
+        edge.first = node.s
+        edge.second = node.t
+        self.edge_list.push_back(edge)
+        
+        cdef EdgeRecoverNode node_left, node_right
+
+        cdef int q = self.e[node.s][node.t][1][1].mid_index
+        node_left = self.new_edge_recover_node(node.s, q, 1, 0)
+        node_right = self.new_edge_recover_node(q+1, node.t, 0, 0)
+        
+        return node_left, node_right
+
+    cdef split_left_trapezoid(self, EdgeRecoverNode node):
+        """
+        left trapezoid: e[s][t][0][1]
+        """
+        cdef pair[int, int] edge
+        edge.first = node.t
+        edge.second = node.s
+        self.edge_list.push_back(edge)
+        
+        cdef EdgeRecoverNode node_left, node_right
+
+        cdef int q = self.e[node.s][node.t][0][1].mid_index
+        node_left = self.new_edge_recover_node(node.s, q, 1, 0)
+        node_right = self.new_edge_recover_node(q+1, node.t, 0, 0)
+
+        return node_left, node_right
+
+    
+    cdef get_edge_list(self):
+        
+        cdef EdgeRecoverNode node, node_left, node_right
+        cdef queue[EdgeRecoverNode] node_queue
+
+        if not self.edge_list.empty():
+            self.edge_list.clear()
+        
+        node_queue.push(self.new_edge_recover_node(0, self.n-1, 1, 0))
+        while not node_queue.empty():
+            push = False
+            node = node_queue.front()
+            node_queue.pop()
+            
+            if node.orientation == 1 and node.shape == 0:
+                node_left, node_right = self.split_right_triangle(node)
+                push = True
+            if node.orientation == 0 and node.shape == 0:
+                node_left, node_right = self.split_left_triangle(node)
+                push = True
+            if node.orientation == 1 and node.shape == 1:
+                node_left, node_right = self.split_right_trapezoid(node)
+                push = True
+            if node.orientation == 0 and node.shape == 1:
+                node_left, node_right = self.split_left_trapezoid(node)
+                push = True
+                
+            if push:
+                if node_left.s != node_left.t:
+                    node_queue.push(node_left)
+                if node_right.s != node_right.t:
+                    node_queue.push(node_right)
+        return
+    
+    def parse(self, n, arc_weight):	
+
+        self.n = n
+        self.init_eisner_matrix()
+
+        cdef int m, s, t, q
+        
+        #TODO: try for m in range(1,n)
         for m from 1 <= m < n by 1: 
             for s from 0 <= s < n by 1:
-                print "s:",s,"m",m
                 t = s + m
                 if t >= n:
                     break
-                print "before max"
-                self.e[s][t][0][1].score, self.e[s][t][0][1].edge_list =\
+
+                self.e[s][t][0][1].score, self.e[s][t][0][1].mid_index =\
                     self.combine_triangle(t, s, arc_weight)
-                
-                self.e[s][t][1][1].score, self.e[s][t][1][1].edge_list =\
+                self.e[s][t][1][1].score, self.e[s][t][1][1].mid_index =\
                     self.combine_triangle(s, t, arc_weight)
-                
-                self.e[s][t][0][0] = self.combine_left(s, t)
-                self.e[s][t][1][0] = self.combine_right(s, t)
-                
-        return self.eisner_matrix[0][n-1][1][0].edge_list
-        """
+                self.e[s][t][0][0].score, self.e[s][t][0][0].mid_index =\
+                    self.combine_left(s, t)
+                self.e[s][t][1][0].score, self.e[s][t][1][0].mid_index =\
+                    self.combine_right(s, t)
+       
+        self.get_edge_list()       
+        self.delete_eisner_matrix()
+
+        return self.edge_list
+        

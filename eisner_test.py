@@ -28,17 +28,19 @@ test_edge_score = {
 }
 
 def test_get_score(a,b):
+    a = str(a)
+    b = str(b)
     if test_edge_score.has_key((a,b)):
         return test_edge_score[(a,b)]
     else:
         return 0
 
 def test_eisner(n=2):
-    #sentence = "0 1 2 3 4 5 6 7 8".split()
+    sentence = "0 1 2 3 4 5 6 7 8".split()
     #print sentence
     a = ceisner.EisnerParser()
-    a.parse(n, test_get_score)
-    print "end"
+    s = a.parse(len(sentence), test_get_score)
+    print s
     return
 
 if __name__ == "__main__":
@@ -47,7 +49,7 @@ if __name__ == "__main__":
         test_eisner(int(sys.argv[1]))
     else:
         test_eisner()
-    print "endd"
+    #print test_get_score(4,6)
     #ce = ceisner.EisnerParser(5)
     #print ce.get_i(4, 4,1,1)
     

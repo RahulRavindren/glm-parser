@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import feature_set, data_set, feature_vector, dependency_tree
-import eisner
-import time
+import ceisner
+import timeit
 
 class WeightLearner():
     """
@@ -77,11 +77,11 @@ class WeightLearner():
         gold_edge_set = \
             set([(head_index,dep_index) for head_index,dep_index,_ in dep_tree.get_edge_list()])
         #print "gold set:", gold_edge_set
-        t = time.clock()
+        t = timeit.default_timer()
         
         current_edge_set = \
-               eisner.EisnerParser().parse(len(word_list), self.fset.get_edge_score)
-        t = (time.clock() - t)
+               ceisner.EisnerParser().parse(len(word_list), self.fset.get_edge_score)
+        t = (timeit.default_timer() - t)
         print "eisner time:", t, "sec     sent_length:", str(len(word_list))
         
         if current_edge_set == gold_edge_set:
